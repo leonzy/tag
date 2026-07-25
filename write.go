@@ -55,8 +55,8 @@ func splitTrack(s string) (number, total string) {
 //	Format          | Text fields              | Lyrics      | Picture
 //	.mp3                | ID3v2.3 text frames      | USLT        | APIC
 //	.flac               | Vorbis Comment           | LYRICS      | PICTURE block
-//	.m4a/.mp4/.m4b/.mov | iTunes atoms (©nam etc)  | ©lyr        | covr
-//	.ogg/.oga       | Vorbis Comment           | LYRICS      | METADATA_BLOCK_PICTURE
+//	.m4a/.mp4/.m4b/.m4v/.mov/.3gp | iTunes atoms (©nam etc) | ©lyr  | covr
+//	.ogg/.oga/.opus | Vorbis Comment           | LYRICS      | METADATA_BLOCK_PICTURE
 //	.ape            | APEv2 items              | Lyrics      | Cover Art (Front) (binary)
 //	.wav            | RIFF LIST INFO           | ICMT        | (not supported)
 //
@@ -73,13 +73,13 @@ func WriteTag(filePath string, opts WriteOptions) error {
 		return WriteAPE(filePath, opts)
 	case ".wav":
 		return WriteWAV(filePath, opts)
-	case ".m4a", ".mp4", ".m4b", ".mov":
-		// .mov 是 QuickTime/ISO-BMFF 容器,与 MP4 同族,共用 moov>udta>meta>ilst
+	case ".m4a", ".mp4", ".m4b", ".m4v", ".mov", ".3gp":
+		// ISO-BMFF 容器家族（MP4/M4A/M4B/M4V/MOV/3GP），共用 moov>udta>meta>ilst
 		// iTunes atoms。WriteMP4 兼容两种 meta 布局:标准 FullBox(带 version/flags)
 		// 与老式纯 QuickTime bare meta(不带前缀,如部分 bilibili 下载源),读取时按
 		// 实际布局定位子 atom,写回统一归一化为标准 FullBox。
 		return WriteMP4(filePath, opts)
-	case ".ogg", ".oga":
+	case ".ogg", ".oga", ".opus":
 		return WriteOGG(filePath, opts)
 	case ".aif", ".aiff":
 		return WriteAIFF(filePath, opts)

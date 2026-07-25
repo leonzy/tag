@@ -2,7 +2,7 @@
 
 [![GoDoc](https://pkg.go.dev/badge/github.com/hanxi/tag)](https://pkg.go.dev/github.com/hanxi/tag)
 
-This package provides MP3 (ID3v1,2.{2,3,4}), MP4 (AAC, M4A, ALAC), OGG, FLAC, WAV, Monkey's Audio (APE), AIFF/AIFF-C, DSF (DSD), and Matroska (.mka/.mkv) metadata detection, parsing and artwork extraction. It also supports **writing** tags back to MP3 (ID3v2.3), FLAC (Vorbis Comment + Picture), M4A/MP4/M4B/MOV (iTunes atoms), OGG (Vorbis Comment), APE (APEv2 footer), WAV (RIFF LIST INFO), and AIFF/AIF (ID3v2.3 chunk).
+This package provides MP3 (ID3v1,2.{2,3,4}), MP4 (AAC, M4A, ALAC), OGG, Opus, FLAC, WAV, Monkey's Audio (APE), AIFF/AIFF-C, DSF (DSD), and Matroska (.mka/.mkv) metadata detection, parsing and artwork extraction. It also supports **writing** tags back to MP3 (ID3v2.3), FLAC (Vorbis Comment + Picture), M4A/MP4/M4B/M4V/MOV/3GP (iTunes atoms), OGG/OGA/Opus (Vorbis Comment), APE (APEv2 footer), WAV (RIFF LIST INFO), and AIFF/AIF (ID3v2.3 chunk).
 
 > Forked from upstream and extended with encoding detection improvements plus multi-format tag writers used by Songloft.
 
@@ -48,8 +48,8 @@ Format dispatch is by file extension:
 |-----------|--------|--------------------------|
 | `.mp3` | ✅ ID3v2.3 | TIT2 / TPE1 / TPE2 / TALB / TYER / TCON / USLT / APIC |
 | `.flac` | ✅ Vorbis Comment + PICTURE | TITLE / ARTIST / ALBUMARTIST / ALBUM / DATE / GENRE / LYRICS + Picture(Front) |
-| `.m4a` / `.mp4` / `.m4b` / `.mov` | ✅ iTunes atoms | ©nam / ©ART / aART / ©alb / ©day / ©gen / ©lyr / covr |
-| `.ogg` / `.oga` | ✅ Vorbis Comment | TITLE / ARTIST / ALBUMARTIST / ALBUM / DATE / GENRE / LYRICS + METADATA_BLOCK_PICTURE |
+| `.m4a` / `.mp4` / `.m4b` / `.m4v` / `.mov` / `.3gp` | ✅ iTunes atoms | ©nam / ©ART / aART / ©alb / ©day / ©gen / ©lyr / covr |
+| `.ogg` / `.oga` / `.opus` | ✅ Vorbis Comment | TITLE / ARTIST / ALBUMARTIST / ALBUM / DATE / GENRE / LYRICS + METADATA_BLOCK_PICTURE |
 | `.ape` | ✅ APEv2 | Title / Artist / Album / Year / Genre / Lyrics / Cover Art (Front) |
 | `.wav` | ✅ RIFF LIST INFO | INAM / IART / IPRD / ICRD / IGNR / ICMT |
 | `.aif` / `.aiff` | ✅ ID3v2.3 (ID3 chunk) | TIT2 / TPE1 / TPE2 / TALB / TYER / TCON / USLT / APIC + NAME / AUTH |
