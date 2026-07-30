@@ -107,12 +107,12 @@ func createTestAIFF(sampleRate uint32, channels uint16, bitsPerSample uint16, nu
 
 func TestAIFFDuration(t *testing.T) {
 	tests := []struct {
-		name        string
-		sampleRate  uint32
-		channels    uint16
+		name          string
+		sampleRate    uint32
+		channels      uint16
 		bitsPerSample uint16
-		numFrames   uint32
-		expectedDur time.Duration
+		numFrames     uint32
+		expectedDur   time.Duration
 	}{
 		{
 			name:          "44.1kHz 16-bit stereo 5 seconds",
@@ -226,8 +226,8 @@ func TestAIFFBitRate(t *testing.T) {
 
 func TestParseIEEE754Extended(t *testing.T) {
 	tests := []struct {
-		name     string
-		rate     float64
+		name string
+		rate float64
 	}{
 		{"44100", 44100},
 		{"48000", 48000},

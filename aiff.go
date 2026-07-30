@@ -269,7 +269,7 @@ func (m *metadataAIFF) Format() Format {
 	return UnknownFormat
 }
 
-func (m *metadataAIFF) FileType() FileType { return AIFF }
+func (m *metadataAIFF) FileType() FileType  { return AIFF }
 func (m *metadataAIFF) Title() string       { return m.title }
 func (m *metadataAIFF) Album() string       { return m.album }
 func (m *metadataAIFF) Artist() string      { return m.artist }
@@ -287,9 +287,9 @@ func (m *metadataAIFF) Comment() string     { return m.comment }
 
 func (m *metadataAIFF) Raw() map[string]interface{} {
 	raw := map[string]interface{}{
-		"channels":         m.channels,
-		"sample_rate":      m.sampleRate,
-		"bits_per_sample":  m.bitsPerSample,
+		"channels":          m.channels,
+		"sample_rate":       m.sampleRate,
+		"bits_per_sample":   m.bitsPerSample,
 		"num_sample_frames": m.numSampleFrames,
 	}
 	return raw
@@ -305,4 +305,3 @@ func (m *metadataAIFF) BitRate() int {
 	}
 	return int(m.sampleRate) * int(m.bitsPerSample) * int(m.channels) / 1000
 }
-

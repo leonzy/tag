@@ -57,11 +57,11 @@ func ReadFLACMeta(r io.ReadSeeker) (Metadata, error) {
 
 type metadataFLAC struct {
 	*metadataVorbis
-	duration       time.Duration
-	sampleRate     int // Hz
-	channels       int
-	bitsPerSample  int
-	cueSheetBlock  *CUESheetData
+	duration      time.Duration
+	sampleRate    int // Hz
+	channels      int
+	bitsPerSample int
+	cueSheetBlock *CUESheetData
 }
 
 const cueSheetBlockType blockType = 5

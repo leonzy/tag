@@ -278,24 +278,24 @@ type metadataAPE struct {
 	duration      time.Duration
 }
 
-func (m *metadataAPE) Format() Format        { return APEv2 }
-func (m *metadataAPE) FileType() FileType     { return APE }
-func (m *metadataAPE) Title() string          { return m.title }
-func (m *metadataAPE) Album() string          { return m.album }
-func (m *metadataAPE) Artist() string         { return m.artist }
-func (m *metadataAPE) AlbumArtist() string    { return m.albumArtist }
-func (m *metadataAPE) Composer() string       { return "" }
-func (m *metadataAPE) Year() int              { return m.year }
-func (m *metadataAPE) Genre() string          { return m.genre }
-func (m *metadataAPE) Language() string       { return m.language }
-func (m *metadataAPE) Style() string          { return m.style }
-func (m *metadataAPE) Track() (int, int)      { return 0, 0 }
-func (m *metadataAPE) Disc() (int, int)       { return 0, 0 }
-func (m *metadataAPE) Picture() *Picture      { return m.picture }
-func (m *metadataAPE) Lyrics() string         { return m.lyrics }
-func (m *metadataAPE) Comment() string        { return m.comment }
+func (m *metadataAPE) Format() Format          { return APEv2 }
+func (m *metadataAPE) FileType() FileType      { return APE }
+func (m *metadataAPE) Title() string           { return m.title }
+func (m *metadataAPE) Album() string           { return m.album }
+func (m *metadataAPE) Artist() string          { return m.artist }
+func (m *metadataAPE) AlbumArtist() string     { return m.albumArtist }
+func (m *metadataAPE) Composer() string        { return "" }
+func (m *metadataAPE) Year() int               { return m.year }
+func (m *metadataAPE) Genre() string           { return m.genre }
+func (m *metadataAPE) Language() string        { return m.language }
+func (m *metadataAPE) Style() string           { return m.style }
+func (m *metadataAPE) Track() (int, int)       { return 0, 0 }
+func (m *metadataAPE) Disc() (int, int)        { return 0, 0 }
+func (m *metadataAPE) Picture() *Picture       { return m.picture }
+func (m *metadataAPE) Lyrics() string          { return m.lyrics }
+func (m *metadataAPE) Comment() string         { return m.comment }
 func (m *metadataAPE) Duration() time.Duration { return m.duration }
-func (m *metadataAPE) SampleRate() int        { return m.sampleRate }
+func (m *metadataAPE) SampleRate() int         { return m.sampleRate }
 
 func (m *metadataAPE) BitRate() int {
 	if m.duration == 0 || m.fileSize == 0 {
@@ -306,8 +306,8 @@ func (m *metadataAPE) BitRate() int {
 
 func (m *metadataAPE) Raw() map[string]interface{} {
 	return map[string]interface{}{
-		"sample_rate":    m.sampleRate,
-		"channels":       m.channels,
+		"sample_rate":     m.sampleRate,
+		"channels":        m.channels,
 		"bits_per_sample": m.bitsPerSample,
 	}
 }
