@@ -331,10 +331,14 @@ func ReadV2MP3Meta(r io.ReadSeeker, size int64) (Metadata, error) {
 	bitrateIndex, _ := cutBits(header, 16, 4)
 	samplerateIndex, _ := cutBits(header, 20, 2)
 
+	if version >= uint64(mpegMax) || layer >= uint64(layerMax) || samplerateIndex >= 3 {
+		return &metadataV2MP3{metadataID3v2: tagMeta}, nil
+	}
+
 	sampleRate := sampleRates[version][samplerateIndex]
 	frameSampleNum := samplesPerFrame[version][layer]
 	var frameBitRate int
-	if int(version) < int(mpegMax) && int(layer) < int(layerMax) && bitrateIndex < 15 {
+	if bitrateIndex < 15 {
 		frameBitRate = bitrates[version][layer][bitrateIndex]
 	}
 
@@ -398,7 +402,17 @@ func findFrameSync(r io.ReadSeeker, startOffset, fileSize int64) (header []byte,
 			return buf[i : i+4], startOffset + int64(i), nil
 		}
 		if buf[i] == 0xFF && (buf[i+1]&0xE0) == 0xE0 {
-			return buf[i : i+4], startOffset + int64(i), nil
+			// Validate frame header fields to skip false sync
+			h := buf[i : i+4]
+			version, _ := cutBits(h, 11, 2)
+			layer, _ := cutBits(h, 13, 2)
+			bitrateIndex, _ := cutBits(h, 16, 4)
+			samplerateIndex, _ := cutBits(h, 20, 2)
+			if version >= uint64(mpegMax) || layer >= uint64(layerMax) ||
+				samplerateIndex >= 3 || bitrateIndex == 0 || bitrateIndex == 15 {
+				continue
+			}
+			return h, startOffset + int64(i), nil
 		}
 	}
 
@@ -429,10 +443,14 @@ func ReadV1MP3Meta(r io.ReadSeeker, size int64) (Metadata, error) {
 	bitrateIndex, _ := cutBits(header, 16, 4)
 	samplerateIndex, _ := cutBits(header, 20, 2)
 
+	if version >= uint64(mpegMax) || layer >= uint64(layerMax) || samplerateIndex >= 3 {
+		return &metadataV1MP3{metadataID3v1: &tagMeta}, nil
+	}
+
 	sampleRate := sampleRates[version][samplerateIndex]
 	frameSampleNum := samplesPerFrame[version][layer]
 	var frameBitRate int
-	if int(version) < int(mpegMax) && int(layer) < int(layerMax) && bitrateIndex < 15 {
+	if bitrateIndex < 15 {
 		frameBitRate = bitrates[version][layer][bitrateIndex]
 	}
 
