@@ -144,6 +144,12 @@ func buildID3v2Frames(opts WriteOptions) ([]byte, error) {
 	// TRCK 直接写 "3" 或 "3/12"（ID3 阅读器按 x/n 解析）
 	appendText("TRCK", opts.Track)
 
+	for k, v := range opts.CustomTags {
+		if k != "" && v != "" {
+			writeTXXXFrame(&buf, k, v)
+		}
+	}
+
 	if opts.Lyrics != "" {
 		writeUSLTFrame(&buf, opts.Lyrics)
 	}

@@ -314,6 +314,11 @@ func buildMP4Ilst(opts WriteOptions) []byte {
 	if opts.Style != "" {
 		body.Write(buildMP4FreeformAtom("STYLE", opts.Style))
 	}
+	for k, v := range opts.CustomTags {
+		if k != "" && v != "" {
+			body.Write(buildMP4FreeformAtom(k, v))
+		}
+	}
 	writeText("\xa9lyr", opts.Lyrics)
 
 	if trkn := buildMP4TrackAtom(opts.Track); trkn != nil {

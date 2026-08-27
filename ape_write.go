@@ -120,6 +120,11 @@ func buildAPEv2Items(opts WriteOptions) ([]byte, uint32) {
 	if opts.Lyrics != "" {
 		entries = append(entries, item{"Lyrics", opts.Lyrics})
 	}
+	for k, v := range opts.CustomTags {
+		if k != "" && v != "" {
+			entries = append(entries, item{k, v})
+		}
+	}
 
 	var buf bytes.Buffer
 	var totalItems uint32

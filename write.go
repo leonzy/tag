@@ -27,11 +27,12 @@ type WriteOptions struct {
 	AlbumArtist string
 	Year        int
 	Genre       string
-	Language    string   // Track language; empty skips the field
-	Style       string   // Track style/sub-genre; empty skips the field
-	Lyrics      string   // UTF-8 lyrics; embedded as USLT (MP3) / LYRICS or unsynced lyrics (others)
-	Track       string   // Track number, "3" or "3/12" (number/total); empty skips the field
-	Picture     *Picture // Cover art (MIMEType + Data required; Description optional)
+	Language    string            // Track language; empty skips the field
+	Style       string            // Track style/sub-genre; empty skips the field
+	Lyrics      string            // UTF-8 lyrics; embedded as USLT (MP3) / LYRICS or unsynced lyrics (others)
+	Track       string            // Track number, "3" or "3/12" (number/total); empty skips the field
+	Picture     *Picture          // Cover art (MIMEType + Data required; Description optional)
+	CustomTags  map[string]string // User-defined tags: key→value. Written as TXXX (MP3), Vorbis Comment (FLAC/OGG), freeform atom (M4A), APEv2 item (APE).
 }
 
 // splitTrack 拆分音轨号字符串为 (number, total)。
