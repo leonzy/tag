@@ -313,6 +313,23 @@ func readTFrame(b []byte) (string, error) {
 	return strings.Join(strings.Split(txt, string(singleZero)), ""), nil
 }
 
+// readTFrameValues reads a text frame and returns its individual values.
+// ID3v2.4 allows multiple values in a single T-frame separated by a null byte
+// (singleZero); ID3v2.2/2.3 instead use repeated frames of the same ID, which
+// are accumulated by the reader loop. This function splits on the null
+// separator, trims and drops empty parts — so a single-value frame yields a
+// one-element slice and an ID3v2.4 multi-value frame yields each artist.
+func readTFrameValues(b []byte) ([]string, error) {
+	if len(b) == 0 {
+		return nil, nil
+	}
+	txt, err := decodeText(b[0], b[1:])
+	if err != nil {
+		return nil, err
+	}
+	return nonEmptyArtists(strings.Split(txt, string(singleZero))), nil
+}
+
 const (
 	encodingISO8859      byte = 0
 	encodingUTF16WithBOM byte = 1

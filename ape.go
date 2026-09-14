@@ -278,12 +278,15 @@ type metadataAPE struct {
 	duration      time.Duration
 }
 
-func (m *metadataAPE) Format() Format          { return APEv2 }
-func (m *metadataAPE) FileType() FileType      { return APE }
-func (m *metadataAPE) Title() string           { return m.title }
-func (m *metadataAPE) Album() string           { return m.album }
-func (m *metadataAPE) Artist() string          { return m.artist }
-func (m *metadataAPE) AlbumArtist() string     { return m.albumArtist }
+func (m *metadataAPE) Format() Format      { return APEv2 }
+func (m *metadataAPE) FileType() FileType  { return APE }
+func (m *metadataAPE) Title() string       { return m.title }
+func (m *metadataAPE) Album() string       { return m.album }
+func (m *metadataAPE) Artist() string      { return m.artist }
+func (m *metadataAPE) AlbumArtist() string { return m.albumArtist }
+
+func (m *metadataAPE) Artists() []string       { return singleArtistList(m.artist) }
+func (m *metadataAPE) AlbumArtists() []string  { return singleArtistList(m.albumArtist) }
 func (m *metadataAPE) Composer() string        { return "" }
 func (m *metadataAPE) Year() int               { return m.year }
 func (m *metadataAPE) Genre() string           { return m.genre }

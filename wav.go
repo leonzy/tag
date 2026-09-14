@@ -131,8 +131,10 @@ type metadataWAV struct {
 	format        Format
 	title         string
 	artist        string
+	artists       []string
 	album         string
 	albumArtist   string
+	albumArtists  []string
 	composer      string
 	year          string
 	genre         string
@@ -213,11 +215,17 @@ func (m *metadataWAV) mergeID3(id3Meta *metadataID3v2) {
 	if a := id3Meta.Artist(); a != "" {
 		m.artist = a
 	}
+	if as := id3Meta.Artists(); len(as) > 0 {
+		m.artists = as
+	}
 	if a := id3Meta.Album(); a != "" {
 		m.album = a
 	}
 	if a := id3Meta.AlbumArtist(); a != "" {
 		m.albumArtist = a
+	}
+	if as := id3Meta.AlbumArtists(); len(as) > 0 {
+		m.albumArtists = as
 	}
 	if c := id3Meta.Composer(); c != "" {
 		m.composer = c
@@ -318,8 +326,20 @@ func (m *metadataWAV) Title() string { return m.title }
 func (m *metadataWAV) Album() string { return m.album }
 
 func (m *metadataWAV) Artist() string { return m.artist }
+func (m *metadataWAV) Artists() []string {
+	if len(m.artists) > 0 {
+		return m.artists
+	}
+	return singleArtistList(m.artist)
+}
 
 func (m *metadataWAV) AlbumArtist() string { return m.albumArtist }
+func (m *metadataWAV) AlbumArtists() []string {
+	if len(m.albumArtists) > 0 {
+		return m.albumArtists
+	}
+	return singleArtistList(m.albumArtist)
+}
 
 func (m *metadataWAV) Composer() string { return m.composer }
 

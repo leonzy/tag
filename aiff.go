@@ -122,8 +122,10 @@ type metadataAIFF struct {
 	duration        time.Duration
 	title           string
 	artist          string
+	artists         []string
 	album           string
 	albumArtist     string
+	albumArtists    []string
 	composer        string
 	year            int
 	genre           string
@@ -195,11 +197,17 @@ func (m *metadataAIFF) readID3Chunk(r io.ReadSeeker, chunkSize uint32) error {
 	if a := id3Meta.Artist(); a != "" {
 		m.artist = a
 	}
+	if as := id3Meta.Artists(); len(as) > 0 {
+		m.artists = as
+	}
 	if a := id3Meta.Album(); a != "" {
 		m.album = a
 	}
 	if a := id3Meta.AlbumArtist(); a != "" {
 		m.albumArtist = a
+	}
+	if as := id3Meta.AlbumArtists(); len(as) > 0 {
+		m.albumArtists = as
 	}
 	if c := id3Meta.Composer(); c != "" {
 		m.composer = c
@@ -269,21 +277,33 @@ func (m *metadataAIFF) Format() Format {
 	return UnknownFormat
 }
 
-func (m *metadataAIFF) FileType() FileType  { return AIFF }
-func (m *metadataAIFF) Title() string       { return m.title }
-func (m *metadataAIFF) Album() string       { return m.album }
-func (m *metadataAIFF) Artist() string      { return m.artist }
+func (m *metadataAIFF) FileType() FileType { return AIFF }
+func (m *metadataAIFF) Title() string      { return m.title }
+func (m *metadataAIFF) Album() string      { return m.album }
+func (m *metadataAIFF) Artist() string     { return m.artist }
+func (m *metadataAIFF) Artists() []string {
+	if len(m.artists) > 0 {
+		return m.artists
+	}
+	return singleArtistList(m.artist)
+}
 func (m *metadataAIFF) AlbumArtist() string { return m.albumArtist }
-func (m *metadataAIFF) Composer() string    { return m.composer }
-func (m *metadataAIFF) Year() int           { return m.year }
-func (m *metadataAIFF) Genre() string       { return m.genre }
-func (m *metadataAIFF) Language() string    { return m.language }
-func (m *metadataAIFF) Style() string       { return m.style }
-func (m *metadataAIFF) Track() (int, int)   { return m.track, m.trackTotal }
-func (m *metadataAIFF) Disc() (int, int)    { return m.disc, m.discTotal }
-func (m *metadataAIFF) Picture() *Picture   { return m.picture }
-func (m *metadataAIFF) Lyrics() string      { return m.lyrics }
-func (m *metadataAIFF) Comment() string     { return m.comment }
+func (m *metadataAIFF) AlbumArtists() []string {
+	if len(m.albumArtists) > 0 {
+		return m.albumArtists
+	}
+	return singleArtistList(m.albumArtist)
+}
+func (m *metadataAIFF) Composer() string  { return m.composer }
+func (m *metadataAIFF) Year() int         { return m.year }
+func (m *metadataAIFF) Genre() string     { return m.genre }
+func (m *metadataAIFF) Language() string  { return m.language }
+func (m *metadataAIFF) Style() string     { return m.style }
+func (m *metadataAIFF) Track() (int, int) { return m.track, m.trackTotal }
+func (m *metadataAIFF) Disc() (int, int)  { return m.disc, m.discTotal }
+func (m *metadataAIFF) Picture() *Picture { return m.picture }
+func (m *metadataAIFF) Lyrics() string    { return m.lyrics }
+func (m *metadataAIFF) Comment() string   { return m.comment }
 
 func (m *metadataAIFF) Raw() map[string]interface{} {
 	raw := map[string]interface{}{

@@ -234,8 +234,13 @@ func readID3v2_4FrameHeader(r io.Reader) (name string, size uint, headerSize uin
 }
 
 // readID3v2Frames reads ID3v2 frames from the given reader using the ID3v2Header.
-func readID3v2Frames(r io.Reader, offset uint, h *id3v2Header) (map[string]interface{}, error) {
+// It returns two maps: result holds each frame's decoded value (string for
+// T-frames, etc.), and values holds the multi-value split of T-frames keyed by
+// frame name (accumulating repeated frames of the same ID, which is how
+// ID3v2.2/2.3 express multiple values). values feeds Artists/AlbumArtists.
+func readID3v2Frames(r io.Reader, offset uint, h *id3v2Header) (map[string]interface{}, map[string][]string, error) {
 	result := make(map[string]interface{})
+	values := make(map[string][]string)
 
 	for offset < h.Size {
 		var err error
@@ -250,7 +255,7 @@ func readID3v2Frames(r io.Reader, offset uint, h *id3v2Header) (map[string]inter
 		case ID3v2_3:
 			name, size, headerSize, err = readID3v2_3FrameHeader(r)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			flags, err = readID3v23FrameFlags(r)
 			headerSize += 2
@@ -258,14 +263,14 @@ func readID3v2Frames(r io.Reader, offset uint, h *id3v2Header) (map[string]inter
 		case ID3v2_4:
 			name, size, headerSize, err = readID3v2_4FrameHeader(r)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			flags, err = readID3v24FrameFlags(r)
 			headerSize += 2
 		}
 
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		// FIXME: Do we still need this?
@@ -288,36 +293,36 @@ func readID3v2Frames(r io.Reader, offset uint, h *id3v2Header) (map[string]inter
 				case ID3v2_3:
 					// No data length indicator defined.
 					if _, err := read7BitChunkedUint(r, 4); err != nil { // read 4
-						return nil, err
+						return nil, nil, err
 					}
 					size -= 4
 
 				case ID3v2_4:
 					// Must have a data length indicator (to give the size) if compression is enabled.
 					if !flags.DataLengthIndicator {
-						return nil, errors.New("compression without data length indicator")
+						return nil, nil, errors.New("compression without data length indicator")
 					}
 
 				default:
-					return nil, fmt.Errorf("unsupported compression flag used in %v", h.Version)
+					return nil, nil, fmt.Errorf("unsupported compression flag used in %v", h.Version)
 				}
 			}
 
 			if flags.DataLengthIndicator {
 				if h.Version == ID3v2_3 {
-					return nil, fmt.Errorf("data length indicator set but not defined for %v", ID3v2_3)
+					return nil, nil, fmt.Errorf("data length indicator set but not defined for %v", ID3v2_3)
 				}
 
 				size, err = read7BitChunkedUint(r, 4)
 				if err != nil { // read 4
-					return nil, err
+					return nil, nil, err
 				}
 			}
 
 			if flags.Encryption {
 				_, err = readBytes(r, 1) // read 1 byte of encryption method
 				if err != nil {
-					return nil, err
+					return nil, nil, err
 				}
 				size--
 			}
@@ -325,7 +330,7 @@ func readID3v2Frames(r io.Reader, offset uint, h *id3v2Header) (map[string]inter
 
 		b, err := readBytes(r, size)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		// There can be multiple tag with the same name. Append a number to the
@@ -347,6 +352,11 @@ func readID3v2Frames(r io.Reader, offset uint, h *id3v2Header) (map[string]inter
 
 		case name[0] == 'T':
 			frameVal, frameErr = readTFrame(b)
+			// Accumulate multi-value splits for T-frames (ID3v2.4 null-separated
+			// values within one frame, and repeated same-ID frames in 2.2/2.3).
+			if vs, e := readTFrameValues(b); e == nil && len(vs) > 0 {
+				values[name] = append(values[name], vs...)
+			}
 
 		case name == "UFID" || name == "UFI":
 			frameVal, frameErr = readUFID(b)
@@ -376,7 +386,7 @@ func readID3v2Frames(r io.Reader, offset uint, h *id3v2Header) (map[string]inter
 		}
 		result[rawName] = frameVal
 	}
-	return result, nil
+	return result, values, nil
 }
 
 type unsynchroniser struct {
@@ -416,12 +426,12 @@ func ReadID3v2Tags(r io.ReadSeeker) (*metadataID3v2, error) {
 		ur = &unsynchroniser{Reader: r}
 	}
 
-	f, err := readID3v2Frames(ur, offset, h)
+	f, v, err := readID3v2Frames(ur, offset, h)
 	if err != nil {
 		return nil, err
 	}
 
-	return &metadataID3v2{header: h, frames: f}, nil
+	return &metadataID3v2{header: h, frames: f, values: v}, nil
 }
 
 var id3v2genreRe = regexp.MustCompile(`(.*[^(]|.* |^)\(([0-9]+)\) *(.*)$`)

@@ -52,6 +52,10 @@ var frames = frameNames(map[string][2]string{
 type metadataID3v2 struct {
 	header *id3v2Header
 	frames map[string]interface{}
+	// values holds the multi-value splits of T-frames keyed by frame ID,
+	// accumulating repeated same-ID frames (ID3v2.2/2.3 multi-value form) and
+	// null-separated values within a single frame (ID3v2.4). Feeds Artists.
+	values map[string][]string
 }
 
 func (m metadataID3v2) getString(k string) string {
@@ -80,6 +84,26 @@ func (m metadataID3v2) Album() string {
 
 func (m metadataID3v2) AlbumArtist() string {
 	return m.getString(frames.Name("album_artist", m.Format()))
+}
+
+// Artists returns all individual artists from the TPE1 frame. ID3v2.4 stores
+// multiple values null-separated in one frame; ID3v2.2/2.3 use repeated TPE1
+// frames. Both forms are accumulated in m.values during reading. Falls back to
+// the single merged Artist string when no multi-value data was recorded.
+func (m metadataID3v2) Artists() []string {
+	if vs, ok := m.values[frames.Name("artist", m.Format())]; ok && len(vs) > 0 {
+		return vs
+	}
+	return singleArtistList(m.Artist())
+}
+
+// AlbumArtists returns all individual album artists from the TPE2 frame, with
+// the same multi-value semantics as Artists.
+func (m metadataID3v2) AlbumArtists() []string {
+	if vs, ok := m.values[frames.Name("album_artist", m.Format())]; ok && len(vs) > 0 {
+		return vs
+	}
+	return singleArtistList(m.AlbumArtist())
 }
 
 func (m metadataID3v2) Composer() string {

@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 )
 
 func getBit(b byte, n uint) bool {
@@ -173,4 +174,32 @@ func readUint16BigEndian(r io.Reader) (uint16, error) {
 		return 0, err
 	}
 	return binary.BigEndian.Uint16(b), nil
+}
+
+// singleArtistList is the default Artists/AlbumArtists implementation for
+// formats that do not support real multi-value storage: it wraps the single
+// artist string into a one-element slice (or nil when empty).
+func singleArtistList(a string) []string {
+	a = strings.TrimSpace(a)
+	if a == "" {
+		return nil
+	}
+	return []string{a}
+}
+
+// nonEmptyArtists trims whitespace and drops empty entries from a multi-value
+// list, returning nil when nothing remains. Used by formats with real
+// multi-value support (ID3v2.4, Vorbis) after splitting raw values.
+func nonEmptyArtists(values []string) []string {
+	out := make([]string, 0, len(values))
+	for _, v := range values {
+		v = strings.TrimSpace(v)
+		if v != "" {
+			out = append(out, v)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }

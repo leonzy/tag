@@ -17,13 +17,15 @@ import (
 
 func newMetadataVorbis() *metadataVorbis {
 	return &metadataVorbis{
-		c: make(map[string]string),
+		c:     make(map[string]string),
+		multi: make(map[string][]string),
 	}
 }
 
 type metadataVorbis struct {
-	c map[string]string // the vorbis comments
-	p *Picture
+	c     map[string]string   // the vorbis comments (last-write-wins per key)
+	multi map[string][]string // all values per key, preserving multi-value fields
+	p     *Picture
 }
 
 func (m *metadataVorbis) readVorbisComment(r io.Reader) error {
@@ -56,7 +58,12 @@ func (m *metadataVorbis) readVorbisComment(r io.Reader) error {
 		if err != nil {
 			return err
 		}
-		m.c[strings.ToLower(k)] = v
+		kl := strings.ToLower(k)
+		m.c[kl] = v
+		// Vorbis comments natively allow multiple fields with the same key
+		// (e.g. two ARTIST= lines for a duet). Keep all of them in order so
+		// Artists/AlbumArtists can expose each value individually.
+		m.multi[kl] = append(m.multi[kl], v)
 	}
 
 	if b64data, ok := m.c["metadata_block_picture"]; ok {
@@ -188,6 +195,24 @@ func (m *metadataVorbis) AlbumArtist() string {
 	// This field isn't actually included in the standard, though
 	// it is commonly assigned to albumartist.
 	return m.c["albumartist"]
+}
+
+// Artists returns all ARTIST fields as separate values (Vorbis supports
+// multiple ARTIST fields natively). Falls back to the single Artist string.
+func (m *metadataVorbis) Artists() []string {
+	if vs, ok := m.multi["artist"]; ok && len(vs) > 0 {
+		return nonEmptyArtists(vs)
+	}
+	return singleArtistList(m.Artist())
+}
+
+// AlbumArtists returns all ALBUMARTIST fields, with the same multi-value
+// semantics as Artists.
+func (m *metadataVorbis) AlbumArtists() []string {
+	if vs, ok := m.multi["albumartist"]; ok && len(vs) > 0 {
+		return nonEmptyArtists(vs)
+	}
+	return singleArtistList(m.AlbumArtist())
 }
 
 func (m *metadataVorbis) Composer() string {

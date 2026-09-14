@@ -574,6 +574,9 @@ func (m *metadataMatroska) AlbumArtist() string {
 	return ""
 }
 
+func (m *metadataMatroska) Artists() []string      { return singleArtistList(m.Artist()) }
+func (m *metadataMatroska) AlbumArtists() []string { return singleArtistList(m.AlbumArtist()) }
+
 func (m *metadataMatroska) Composer() string {
 	if v := m.c["composer"]; v != "" {
 		return v

@@ -348,8 +348,29 @@ func (m metadataMP4) AlbumArtist() string {
 	return m.getString(atoms.Name("album_artist"))
 }
 
+// MP4 standard text atoms (©ART/aART) do not natively split multiple artists;
+// multi-value would arrive as multiple data atoms joined by ';' in
+// readAtomData. Expose each value by splitting on ';' as a best-effort until
+// the read path preserves the raw slice.
+func (m metadataMP4) Artists() []string {
+	return splitSemicolonArtists(m.getString(atoms.Name("artist")))
+}
+func (m metadataMP4) AlbumArtists() []string {
+	return splitSemicolonArtists(m.getString(atoms.Name("album_artist")))
+}
+
 func (m metadataMP4) Composer() string {
 	return m.getString(atoms.Name("composer"))
+}
+
+// splitSemicolonArtists best-effort splits an MP4 multi-data atom value (joined
+// by ';' in readAtomData) back into individual artists. Returns nil when empty.
+func splitSemicolonArtists(s string) []string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil
+	}
+	return nonEmptyArtists(strings.Split(s, ";"))
 }
 
 func (m metadataMP4) Genre() string {

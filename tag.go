@@ -162,6 +162,17 @@ type Metadata interface {
 	// AlbumArtist returns the album artist name of the track.
 	AlbumArtist() string
 
+	// Artists returns all individual artists as separate values, when the tag
+	// format supports multi-value storage (ID3v2.4 null-separated T-frames,
+	// Vorbis/FLAC multiple ARTIST fields). Formats without real multi-value
+	// support return a single-element slice built from Artist (or nil when
+	// empty). Never returns an empty string element.
+	Artists() []string
+
+	// AlbumArtists returns all individual album artists, with the same
+	// multi-value semantics as Artists.
+	AlbumArtists() []string
+
 	// Composer returns the composer of the track.
 	Composer() string
 
