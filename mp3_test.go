@@ -1,6 +1,9 @@
 package tag
 
 import (
+	"bytes"
+	"encoding/binary"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -16,8 +19,8 @@ func TestMP3VBRDuration(t *testing.T) {
 	}{
 		{
 			name:        "testdata/with_tags/sample.vbr.mp3",
-			expectedDur: 250 * time.Second,
-			tolerance:   1 * time.Second,
+			expectedDur: 249984 * time.Millisecond,
+			tolerance:   time.Microsecond,
 		},
 	}
 
@@ -55,12 +58,68 @@ func TestMP3VBRDuration(t *testing.T) {
 }
 
 func TestMP3CBRDuration(t *testing.T) {
-	// 测试 CBR MP3 文件的时长计算
-	// CBR 文件没有 Xing/LAME 头，应该使用帧大小计算方法
+	// 128kbps、3202000 字节音频应为 200.125s；帧头、CRC、首帧 padding
+	// 都不能重复计入。此处无 Xing，测试 CBR 估算而非解码器。
+	for _, header := range [][]byte{{0xff, 0xfb, 0x90, 0}, {0xff, 0xfa, 0x90, 0}, {0xff, 0xfb, 0x92, 0}} {
+		for _, trailer := range []bool{false, true} {
+			t.Run(fmt.Sprintf("header=%x/trailer=%v", header, trailer), func(t *testing.T) {
+				data := make([]byte, 10+3202000)
+				copy(data, []byte{'I', 'D', '3', 3, 0, 0, 0, 0, 0, 0})
+				copy(data[10:], header)
+				if trailer {
+					data = append(data, make([]byte, 128)...)
+					copy(data[len(data)-128:], "TAG")
+				}
+				meta, err := ReadFrom(bytes.NewReader(data))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if got, want := meta.Duration(), 200125*time.Millisecond; got != want {
+					t.Fatalf("duration = %v, want %v", got, want)
+				}
+			})
+		}
+	}
+}
 
-	// 这里我们创建一个模拟的 CBR MP3 数据
-	// 实际测试需要使用真实的 CBR MP3 文件
-	t.Skip("需要真实的 CBR MP3 测试文件")
+func TestMP3XingFractionalDuration(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		header     []byte
+		sideBytes  int
+		sampleRate int64
+		samples    int64
+	}{
+		{"mpeg1 stereo", []byte{0xff, 0xfb, 0x90, 0}, 32, 44100, 1152},
+		{"mpeg1 mono", []byte{0xff, 0xfb, 0x90, 0xc0}, 17, 44100, 1152},
+		{"mpeg2 stereo", []byte{0xff, 0xf3, 0x80, 0}, 17, 22050, 576},
+		{"mpeg2 mono", []byte{0xff, 0xf3, 0x80, 0xc0}, 9, 22050, 576},
+	} {
+		for _, id3v2 := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/id3v2=%v", tc.name, id3v2), func(t *testing.T) {
+				data := make([]byte, 417)
+				copy(data, tc.header)
+				offset := 4 + tc.sideBytes
+				copy(data[offset:], "Xing")
+				binary.BigEndian.PutUint32(data[offset+4:], 1)
+				binary.BigEndian.PutUint32(data[offset+8:], 7793)
+				if id3v2 {
+					data = append([]byte{'I', 'D', '3', 3, 0, 0, 0, 0, 0, 0}, data...)
+				} else {
+					data = append(data, make([]byte, 128)...)
+					copy(data[len(data)-128:], "TAG")
+				}
+				meta, err := ReadFrom(bytes.NewReader(data))
+				if err != nil {
+					t.Fatal(err)
+				}
+				want := time.Duration(7793*tc.samples) * time.Second / time.Duration(tc.sampleRate)
+				if delta := meta.Duration() - want; delta < -time.Nanosecond || delta > time.Nanosecond {
+					t.Fatalf("duration = %v, want %v", meta.Duration(), want)
+				}
+			})
+		}
+	}
 }
 
 func TestMP3WithPaddingAfterID3v2(t *testing.T) {

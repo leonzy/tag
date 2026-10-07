@@ -90,12 +90,6 @@ var (
 			384,
 		},
 	}
-	slotSize = [layerMax]int{
-		0, //	LayerReserved
-		1, //	Layer3
-		1, //	Layer2
-		4, //	Layer1
-	}
 )
 
 type metadataV2MP3 struct {
@@ -147,11 +141,6 @@ func getMP3Duration(header []byte, strippedSize int64) (time.Duration, error) {
 		return 0, fmt.Errorf("invalid mpeg layer index: %d", layer)
 	}
 
-	protection, err := cutBits(header, 15, 1)
-	if err != nil {
-		return 0, fmt.Errorf("reading mpeg protection: %w", err)
-	}
-
 	bitrateIndex, err := cutBits(header, 16, 4)
 	if err != nil {
 		return 0, fmt.Errorf("reading mpeg bitrate index: %w", err)
@@ -173,11 +162,6 @@ func getMP3Duration(header []byte, strippedSize int64) (time.Duration, error) {
 		return 0, fmt.Errorf("invalid samplerate index: reserved value 3")
 	}
 
-	padding, err := cutBits(header, 21, 1)
-	if err != nil {
-		return 0, fmt.Errorf("reading mpeg padding bit: %w", err)
-	}
-
 	// 访问查找表前验证索引范围
 	sampleRate := sampleRates[version][samplerateIndex]
 	if sampleRate == 0 {
@@ -189,34 +173,22 @@ func getMP3Duration(header []byte, strippedSize int64) (time.Duration, error) {
 		return 0, fmt.Errorf("invalid bitrate: got 0 for version=%d layer=%d bitrate_index=%d", version, layer, bitrateIndex)
 	}
 
-	frameSampleNum := samplesPerFrame[version][layer]
-	if frameSampleNum == 0 {
-		return 0, fmt.Errorf("invalid samples per frame: got 0 for version=%d layer=%d", version, layer)
+	if strippedSize <= 0 {
+		return 0, fmt.Errorf("invalid audio size: %d", strippedSize)
 	}
 
-	frameDuration := float64(frameSampleNum) / float64(sampleRate)
-	frameSize := math.Floor(((frameDuration * float64(bitrate)) * 1000) / 8)
-	if padding == 1 {
-		frameSize += float64(slotSize[layer])
-	}
-	if protection == 1 {
-		frameSize += 2
-	}
-	// add the header length
-	frameSize += 4
-
-	// 防止除以零
-	if frameSize == 0 {
-		return 0, fmt.Errorf("invalid frame size: calculated as 0")
-	}
-
-	duration := time.Second * time.Duration(math.Round((float64(strippedSize)/float64(frameSize))*frameDuration))
+	// CBR 按音频字节数 / 码率估算，保留小数秒。码率已经包含帧头及 CRC，
+	// 不能再额外计入；padding 也会逐帧变化，不能用首帧长度估算整首帧数。
+	duration := time.Duration(float64(strippedSize) * 8 / (float64(bitrate) * 1000) * float64(time.Second))
 
 	return duration, nil
 }
 
 // parseVBRHeader 尝试解析 Xing/LAME VBR 头，如果找到则返回总帧数和总字节数
-func parseVBRHeader(r io.ReadSeeker, headerOffset int64, mpegVersion mpegVersion, mpegLayer mpegLayer, protection uint64) (totalFrames uint32, totalBytes uint32, hasVBR bool, err error) {
+func parseVBRHeader(r io.ReadSeeker, headerOffset int64, mpegVersion mpegVersion, mpegLayer mpegLayer, protection, channelMode uint64) (totalFrames uint32, totalBytes uint32, hasVBR bool, err error) {
+	if mpegLayer != layer3 {
+		return 0, 0, false, nil
+	}
 	// 计算 VBR 头的偏移位置
 	// Xing 头在帧同步字和边信息之后
 	offset := headerOffset + 4 // 跳过 4 字节帧头
@@ -224,12 +196,17 @@ func parseVBRHeader(r io.ReadSeeker, headerOffset int64, mpegVersion mpegVersion
 	// 跳过边信息 (Side Information)
 	// MPEG1: 17 bytes (mono) or 32 bytes (stereo)
 	// MPEG2/2.5: 9 bytes (mono) or 17 bytes (stereo)
-	// 这里我们简单处理，读取更多数据来查找 Xing/Lame 标记
 	skipBytes := int64(0)
 	if mpegVersion == mpeg1 {
-		skipBytes = 32 // 假设 stereo
+		skipBytes = 32
+		if channelMode == 3 {
+			skipBytes = 17
+		}
 	} else {
-		skipBytes = 17 // 假设 stereo
+		skipBytes = 17
+		if channelMode == 3 {
+			skipBytes = 9
+		}
 	}
 	offset += skipBytes
 
@@ -294,6 +271,19 @@ func parseVBRHeader(r io.ReadSeeker, headerOffset int64, mpegVersion mpegVersion
 
 const maxPaddingScan = 64 * 1024
 
+// mp3AudioSize 扣除音频末尾的 ID3v1 标签；无标签文件不能盲减 128 字节。
+func mp3AudioSize(r io.ReadSeeker, audioStart, size int64) int64 {
+	if size-audioStart >= 128 {
+		if _, err := r.Seek(size-128, io.SeekStart); err == nil {
+			var marker [3]byte
+			if _, err := io.ReadFull(r, marker[:]); err == nil && string(marker[:]) == "TAG" {
+				size -= 128
+			}
+		}
+	}
+	return size - audioStart
+}
+
 func ReadV2MP3Meta(r io.ReadSeeker, size int64) (Metadata, error) {
 	tagMeta, err := ReadID3v2Tags(r)
 	if err != nil {
@@ -328,6 +318,7 @@ func ReadV2MP3Meta(r io.ReadSeeker, size int64) (Metadata, error) {
 	version, _ := cutBits(header, 11, 2)
 	layer, _ := cutBits(header, 13, 2)
 	protection, _ := cutBits(header, 15, 1)
+	channelMode, _ := cutBits(header, 24, 2)
 	bitrateIndex, _ := cutBits(header, 16, 4)
 	samplerateIndex, _ := cutBits(header, 20, 2)
 
@@ -343,7 +334,7 @@ func ReadV2MP3Meta(r io.ReadSeeker, size int64) (Metadata, error) {
 	}
 
 	// 尝试解析 VBR 头
-	totalFrames, totalBytes, hasVBR, err := parseVBRHeader(r, audioStart, mpegVersion(version), mpegLayer(layer), protection)
+	totalFrames, totalBytes, hasVBR, err := parseVBRHeader(r, audioStart, mpegVersion(version), mpegLayer(layer), protection, channelMode)
 	if err != nil {
 		// VBR 头解析失败，回退到 CBR 计算
 		fmt.Printf("Warning: failed to parse VBR header: %v, falling back to CBR calculation\n", err)
@@ -353,10 +344,10 @@ func ReadV2MP3Meta(r io.ReadSeeker, size int64) (Metadata, error) {
 	if hasVBR && totalFrames > 0 && sampleRate > 0 && frameSampleNum > 0 {
 		// 使用 VBR 信息计算时长
 		frameDuration := float64(frameSampleNum) / float64(sampleRate)
-		duration = time.Second * time.Duration(math.Round(float64(totalFrames)*frameDuration))
+		duration = time.Duration(float64(totalFrames) * frameDuration * float64(time.Second))
 	} else {
 		// 使用 CBR 计算方法
-		duration, err = getMP3Duration(header, size-audioStart)
+		duration, err = getMP3Duration(header, mp3AudioSize(r, audioStart, size))
 		if err != nil {
 			return &metadataV2MP3{metadataID3v2: tagMeta, sampleRate: sampleRate}, nil
 		}
@@ -440,6 +431,7 @@ func ReadV1MP3Meta(r io.ReadSeeker, size int64) (Metadata, error) {
 	version, _ := cutBits(header, 11, 2)
 	layer, _ := cutBits(header, 13, 2)
 	protection, _ := cutBits(header, 15, 1)
+	channelMode, _ := cutBits(header, 24, 2)
 	bitrateIndex, _ := cutBits(header, 16, 4)
 	samplerateIndex, _ := cutBits(header, 20, 2)
 
@@ -456,7 +448,7 @@ func ReadV1MP3Meta(r io.ReadSeeker, size int64) (Metadata, error) {
 
 	// 尝试解析 VBR 头
 	vbrOffset := int64(0)
-	totalFrames, totalBytes, hasVBR, err := parseVBRHeader(r, vbrOffset, mpegVersion(version), mpegLayer(layer), protection)
+	totalFrames, totalBytes, hasVBR, err := parseVBRHeader(r, vbrOffset, mpegVersion(version), mpegLayer(layer), protection, channelMode)
 	if err != nil {
 		// VBR 头解析失败，回退到 CBR 计算
 		fmt.Printf("Warning: failed to parse VBR header: %v, falling back to CBR calculation\n", err)
@@ -466,10 +458,10 @@ func ReadV1MP3Meta(r io.ReadSeeker, size int64) (Metadata, error) {
 	if hasVBR && totalFrames > 0 && sampleRate > 0 && frameSampleNum > 0 {
 		// 使用 VBR 信息计算时长
 		frameDuration := float64(frameSampleNum) / float64(sampleRate)
-		duration = time.Second * time.Duration(math.Round(float64(totalFrames)*frameDuration))
+		duration = time.Duration(float64(totalFrames) * frameDuration * float64(time.Second))
 	} else {
 		// 使用 CBR 计算方法
-		duration, err = getMP3Duration(header, size-128)
+		duration, err = getMP3Duration(header, mp3AudioSize(r, 0, size))
 		if err != nil {
 			return &metadataV1MP3{metadataID3v1: &tagMeta, sampleRate: sampleRate}, nil
 		}
