@@ -71,7 +71,7 @@ func ReadWAVMeta(r io.ReadSeeker) (Metadata, error) {
 			}
 			continue
 
-		case "ID3 ":
+		case "ID3 ", "id3 ":
 			if err := m.readID3Chunk(r, chunkSize); err != nil {
 				return nil, err
 			}
