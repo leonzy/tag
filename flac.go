@@ -30,6 +30,17 @@ const (
 // ReadFLACMeta reads FLAC metadata from the io.ReadSeeker, returning the resulting
 // metadata in a Metadata implementation, or non-nil error if there was a problem.
 func ReadFLACMeta(r io.ReadSeeker) (Metadata, error) {
+	return readFLACMeta(r, false)
+}
+
+// ReadFLACCUESheet reads only STREAMINFO and binary CUESHEET blocks. Other
+// metadata, including pictures and Vorbis comments containing base64 artwork,
+// is skipped by seeking. Use ReadFLACMeta for normal tags and artwork.
+func ReadFLACCUESheet(r io.ReadSeeker) (Metadata, error) {
+	return readFLACMeta(r, true)
+}
+
+func readFLACMeta(r io.ReadSeeker, cueOnly bool) (Metadata, error) {
 	flac, err := readString(r, 4)
 	if err != nil {
 		return nil, err
@@ -41,9 +52,16 @@ func ReadFLACMeta(r io.ReadSeeker) (Metadata, error) {
 	m := &metadataFLAC{
 		metadataVorbis: newMetadataVorbis(),
 	}
+	var end int64
+	if cueOnly {
+		end, err = getFileSize(r)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	for {
-		last, err := m.readFLACBlock(r)
+		last, err := m.readFLACBlock(r, cueOnly, end)
 		if err != nil {
 			return nil, err
 		}
@@ -66,12 +84,11 @@ type metadataFLAC struct {
 
 const cueSheetBlockType blockType = 5
 
-func (m *metadataFLAC) readFLACBlock(r io.ReadSeeker) (last bool, err error) {
+func (m *metadataFLAC) readFLACBlock(r io.ReadSeeker, cueOnly bool, end int64) (last bool, err error) {
 	blockHeader, err := readBytes(r, 1)
 	if err != nil {
 		return
 	}
-
 	if getBit(blockHeader[0], 7) {
 		blockHeader[0] ^= (1 << 7)
 		last = true
@@ -80,6 +97,29 @@ func (m *metadataFLAC) readFLACBlock(r io.ReadSeeker) (last bool, err error) {
 	blockLen, err := readInt(r, 3)
 	if err != nil {
 		return
+	}
+	if cueOnly {
+		position, seekErr := r.Seek(0, io.SeekCurrent)
+		if seekErr != nil {
+			return last, seekErr
+		}
+		if int64(blockLen) > end-position {
+			return last, io.ErrUnexpectedEOF
+		}
+		switch blockType(blockHeader[0]) {
+		case streamInfoBlock:
+			if blockLen != 34 {
+				return last, errors.New("invalid FLAC STREAMINFO length")
+			}
+		case cueSheetBlockType:
+			// At most 255 tracks, each with at most 255 twelve-byte indices.
+			if blockLen > 396+255*(36+255*12) {
+				return last, errors.New("invalid FLAC CUESHEET length")
+			}
+		default:
+			_, err = r.Seek(int64(blockLen), io.SeekCurrent)
+			return
+		}
 	}
 
 	switch blockType(blockHeader[0]) {
@@ -107,7 +147,7 @@ func (m *metadataFLAC) readFLACBlock(r io.ReadSeeker) (last bool, err error) {
 
 func (m *metadataFLAC) readStreamingInfoBlock(r io.Reader, len int) error {
 	data := make([]byte, len)
-	if _, err := r.Read(data); err != nil {
+	if _, err := io.ReadFull(r, data); err != nil {
 		return err
 	}
 

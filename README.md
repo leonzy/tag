@@ -1,5 +1,11 @@
 # MP3/MP4/OGG/FLAC metadata library (read + write)
 
+For binary FLAC CUESHEET discovery, `ReadFLACCUESheet(io.ReadSeeker)` reads only
+STREAMINFO and CUESHEET blocks. It seeks past pictures and Vorbis comments,
+including comments with base64 artwork, without loading their payloads. The
+returned metadata provides sample rate/audio information and `CUESheetProvider`;
+use `ReadFrom` / `ReadFLACMeta` for normal text tags and artwork.
+
 [![GoDoc](https://pkg.go.dev/badge/github.com/hanxi/tag)](https://pkg.go.dev/github.com/hanxi/tag)
 
 This package provides MP3 (ID3v1,2.{2,3,4}), MP4 (AAC, M4A, ALAC), OGG, Opus, FLAC, WAV, Monkey's Audio (APE), AIFF/AIFF-C, DSF (DSD), and Matroska (.mka/.mkv) metadata detection, parsing and artwork extraction. It also supports **writing** tags back to MP3 (ID3v2.3), FLAC (Vorbis Comment + Picture), M4A/MP4/M4B/M4V/MOV/3GP (iTunes atoms), OGG/OGA/Opus (Vorbis Comment), APE (APEv2 footer), WAV (RIFF LIST INFO), and AIFF/AIF (ID3v2.3 chunk).
